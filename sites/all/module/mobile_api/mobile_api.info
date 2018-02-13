@@ -1,0 +1,6 @@
+name = Mobile Api
+core = 7.x
+description = Module for the Api Mobile interaction
+
+files[] = mobile_api.module
+files[] = mobile_api.inc

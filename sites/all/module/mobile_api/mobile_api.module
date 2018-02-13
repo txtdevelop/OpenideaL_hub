@@ -1,0 +1,146 @@
+<?php 
+
+function mobile_api_node_insert($node) {
+	
+	// error_log("mobile_api_node_insert");
+	// error_log(print_r($node,true));
+
+	try {
+		sendNotification(null, "A new Idea is published", "A new Idea is Published");
+	} catch(Exception $e) {
+		error_log("Error during mobile_api_node_insert $e");
+	}
+}
+
+function mobile_api_comment_insert($comment) {
+	
+	// error_log("mobile_api_comment_insert");
+	// error_log(print_r($comment,true));
+	
+	try {
+		if ($comment->nid != null && $comment->nid > 0) {
+			$query = "SELECT u.signature";
+			$query .= " FROM {users} u";
+			$query .= " JOIN {node} n ON n.uid = u.uid";
+			$query .= " WHERE n.nid = :nid AND u.status = 1";
+			$user = db_query($query, array(':nid' => $comment->nid))->fetchObject();
+			// error_log(print_r($user,true));
+			sendNotification($user->signature, "A new Comment for your idea is published", "A new Comment for your idea is published");
+		}
+	} catch(Exception $e) {
+		error_log("Error during mobile_api_comment_insert $e");
+	}
+}
+
+function mobile_api_userpoints($op, $params) {
+
+	// error_log("mobile_api_userpoints");
+	// error_log(print_r($op,true));	
+	// error_log(print_r($params,true));	
+	
+	if ($op == 'points after') {
+		mobile_api_userpoints_insert($params);
+	}
+}
+
+function mobile_api_userpoints_insert($userpoints) {
+
+	// error_log("mobile_api_userpoints_insert");
+	// error_log(print_r($userpoints,true));
+
+	try {
+		if ($userpoints["uid"] != null && $userpoints["uid"] > 0) {
+			$query = "SELECT signature";
+			$query .= " FROM {users}";
+			$query .= " WHERE uid = :uid and status = 1";
+			$user = db_query($query, array(':uid' => $userpoints["uid"]))->fetchObject();
+			// error_log(print_r($user,true));
+			if ($user->signature != null && $user->signature != "") {
+				sendNotification($user->signature, "You have earned points", "You have earned points");
+			}
+		}
+	} catch(Exception $e) {
+		error_log("Error during mobile_api_userpoints_insert $e");
+	}
+}
+
+function mobile_api_votingapi_insert($vud) {
+
+	// error_log("mobile_api_votingapi_insert");
+	// error_log(print_r($vud,true));
+
+	try {
+		foreach ($vud as $key => $value) {
+			if ($value["entity_id"] != null && $value["entity_id"] > 0 && $value["entity_type"] == 'node') {
+				$query = "SELECT u.signature";
+				$query .= " FROM {users} u";
+				$query .= " JOIN {node} n ON n.uid = u.uid";
+				$query .= " WHERE n.nid = :nid AND u.status = 1";
+				$user = db_query($query, array(':nid' => $value["entity_id"]))->fetchObject();
+				// error_log(print_r($user,true));
+				if ($user->signature != null && $user->signature != "") {
+					sendNotification($user->signature, "You have earned Vote", "You have earned Vote");
+				}
+			}
+		}
+	} catch(Exception $e) {
+		error_log("Error during mobile_api_votingapi_insert $e");
+	}
+}
+
+// ------------------------------------------
+
+function sendNotification($to, $title, $body) {
+
+	try {
+		
+		if ($to == null) {
+			$to = '/topics/All';
+		}
+		if ($title == null) {
+			$title = 'New Notification';
+		}
+		if ($body == null) {
+			$body = 'There is a new notification for you';
+		}
+
+		define( 'API_ACCESS_KEY', 'AAAAD1PTRPY:APA91bGa1AUE95uF19h3eqf2uern6IeeNGWF2qshcxK18kERl1R3xbMxFIQBKVKSx1zcTzRGiCFuhJFIXWBJJht_svmut2Woevxw4VZ3HAdKioWOBri9rVl7ZVwyM7Vy2HI1XRUafZ9r' );
+
+		$msg = array
+				(
+					'title'	=> $title,
+					'body' 	=> $body,
+				);
+
+		$fields = array
+				(
+					'to'		=> $to,
+					'notification'	=> $msg,
+					'data'          => array('' => ''),
+					'priority' => 'high'
+				);
+				
+		$headers = array
+				(
+					'Authorization: key=' . API_ACCESS_KEY,
+					'Content-Type: application/json'
+				);
+				
+
+		$ch = curl_init();
+		curl_setopt( $ch,CURLOPT_URL, 'https://fcm.googleapis.com/fcm/send' );
+		curl_setopt( $ch,CURLOPT_POST, true );
+		curl_setopt( $ch,CURLOPT_HTTPHEADER, $headers );
+		curl_setopt( $ch,CURLOPT_RETURNTRANSFER, true );
+		curl_setopt( $ch,CURLOPT_SSL_VERIFYPEER, false );
+		curl_setopt( $ch,CURLOPT_POSTFIELDS, json_encode( $fields ) );
+		$result = curl_exec($ch);
+		curl_close( $ch );
+		
+		// error_log(print_r(curl_getinfo($ch), true));
+		
+	} catch (Exception $e) {
+		
+		error_log($e);
+	}
+}
